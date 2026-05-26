@@ -80,9 +80,9 @@ Then ask: _"Approve all, approve a subset, or revise?"_
 ### Step 4 — Recommend links
 After ontology is approved (or for an existing glossary the steward names),
 delegate to `link_recommendation_agent`. It returns asset-to-term link
-proposals with `relationship` ∈ {`synonym`, `related`, `describes`} and a
-short reason. Present them grouped by term. Ask the steward to confirm
-before creating.
+proposals with `relationship` ∈ {`synonym`, `related`, `definition`,
+`schema-join`} (canonical Dataplex EntryLinkType names) and a short reason.
+Present them grouped by term. Ask the steward to confirm before creating.
 
 ### Step 5 — Apply changes
 Only after explicit approval, call the appropriate CRUD tools:

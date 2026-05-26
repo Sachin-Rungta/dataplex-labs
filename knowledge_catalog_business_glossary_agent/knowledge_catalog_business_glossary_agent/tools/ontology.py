@@ -60,7 +60,7 @@ def suggest_link_candidates(
     overlap = len(shared)
     name_hit = term.lower() in (entry.get("display_name") or "").lower()
     score = overlap + (3 if name_hit else 0)
-    relationship = "synonym" if name_hit and overlap >= 2 else "describes"
+    relationship = "synonym" if name_hit and overlap >= 2 else "definition"
     scored.append({
         "entry_name": entry.get("entry_name"),
         "display_name": entry.get("display_name"),
