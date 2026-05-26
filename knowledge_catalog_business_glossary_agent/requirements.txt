@@ -1,0 +1,7 @@
+google-adk
+google-cloud-dataplex
+google-cloud-storage
+google-cloud-documentai
+google-api-core
+google-auth
+requests
