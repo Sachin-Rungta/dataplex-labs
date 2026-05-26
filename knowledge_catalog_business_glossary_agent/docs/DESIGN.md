@@ -32,8 +32,9 @@ P1. **Context grounding** — assemble the evidence (catalog + docs + lineage)
     before any recommendation.
 P2. **Ontology recommendation** — propose glossary identity, categories,
     terms with definitions and citations.
-P3. **Link recommendation** — propose `synonym` / `related` / `describes`
-    EntryLinks between terms and catalog entries.
+P3. **Link recommendation** — propose `definition` / `synonym` / `related`
+    / `schema-join` EntryLinks (canonical Dataplex EntryLinkType names)
+    between terms and catalog entries.
 P4. **Lifecycle** — recommend → review → apply (create/update/delete) with
     auditability and rollback.
 P5. **Conversational-analytics uplift** — prove that the glossary + links
@@ -129,7 +130,7 @@ embeddings land; E gated per-project for privacy review.
 | --- | --- | --- | --- |
 | **A. Lexical overlap** (current) | No external calls | Misses semantic matches; brittle on column name fragments | V1 |
 | **B. Embedding cosine + threshold** | Catches synonyms (`cust_id` ↔ `Customer`) | Needs threshold tuning per domain | V2 |
-| **C. B + LLM relationship classifier** | Picks `synonym` vs `describes` vs `related` correctly | LLM cost per candidate pair | V2 |
+| **C. B + LLM relationship classifier** | Picks `definition` vs `synonym` vs `related` vs `schema-join` correctly | LLM cost per candidate pair | V2 |
 | **D. C + lineage-propagation** | Auto-links downstream tables when an upstream is linked | Needs careful confidence decay | V2.5 |
 | **E. D + steward-in-the-loop active learning** | Improves over time per org | Needs feedback storage + retraining | V3 |
 
@@ -228,7 +229,7 @@ downstream NL-to-SQL agent and measure against a no-glossary control.
 | Set | Size | Inputs | Labels |
 |-----|------|--------|--------|
 | `gs_ontology_v0` | 3 domains × ~30 terms | Project + GCS docs per domain | Expert glossary (terms, categories, definitions) |
-| `gs_links_v0` | ~500 (term, entry) pairs | Same 3 domains | `synonym` / `related` / `describes` / `none` |
+| `gs_links_v0` | ~500 (term, entry) pairs | Same 3 domains | `definition` / `synonym` / `related` / `schema-join` / `none` |
 | `gs_ingestion_v0` | 20 GCS docs | PDF, MD, CSV mix | Expected extracted concept list |
 | `gs_nl_questions_v0` | 50–100 NL questions per domain | Questions stewards/analysts actually ask | Expected SQL or expected answer + reference tables |
 
@@ -251,8 +252,9 @@ downstream NL-to-SQL agent and measure against a no-glossary control.
   P ≥ 0.70 in V2.
 - *Link recall* — vs expert link set. Target: R ≥ 0.60 (recall is harder
   because experts under-link too).
-- *Relationship-type accuracy* — given link is correct, was `synonym`
-  vs `describes` vs `related` chosen correctly. Target: ≥ 0.85.
+- *Relationship-type accuracy* — given link is correct, was the
+  EntryLinkType (`definition` / `synonym` / `related` / `schema-join`)
+  chosen correctly. Target: ≥ 0.85.
 - *F1* — harmonic mean.
 
 **P1 — Ingestion**

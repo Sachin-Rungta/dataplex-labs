@@ -24,8 +24,9 @@ Knowledge Catalog primitives as the sibling
      through **Document AI** when a processor is configured.
 2. **Recommends ontology**: glossary identity, 3–10 categories, and 10–40
    terms, each with a definition and cited evidence.
-3. **Recommends links**: ranked `synonym` / `related` / `describes`
-   EntryLink proposals between terms and catalog entries.
+3. **Recommends links**: ranked `definition` / `synonym` / `related` /
+   `schema-join` EntryLink proposals (canonical Dataplex EntryLinkType
+   names) between terms and catalog entries.
 4. **Applies changes on approval**: full CRUD over glossaries, categories,
    terms, and EntryLinks via the Dataplex REST API.
 

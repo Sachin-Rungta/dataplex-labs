@@ -5,13 +5,15 @@ EntryLinks attach semantic meaning (a glossary term) to a catalog entry
 the term <-> asset relationships a steward would otherwise click together
 manually.
 
-Supported relationship reference types:
-  * ``synonym``  -- the asset uses the same concept under a different name
-  * ``related``  -- the asset is meaningfully related to the term
-  * ``describes`` -- the term describes the asset
+Supported relationship reference types (canonical Dataplex names):
+  * ``synonym``     -- two glossary terms (or term + asset) mean the same thing
+  * ``related``     -- meaningfully related but not identical
+  * ``definition``  -- glossary term defines / describes a data asset
+  * ``schema-join`` -- column-level link between two entries (e.g. join key)
 
-The relationship is encoded via the ``entryLinkType`` system reference link
-in Dataplex (``projects/dataplex-types/locations/global/entryLinkTypes/...``).
+The relationship is encoded via the ``entryLinkType`` system reference
+resource in Dataplex
+(``projects/dataplex-types/locations/global/entryLinkTypes/<name>``).
 """
 
 import logging
@@ -29,12 +31,12 @@ from ..utils import get_access_token, parse_entry_name, slugify
 logger = logging.getLogger(__name__)
 _TIMEOUT = 30
 
+_LINK_TYPE_BASE = "projects/dataplex-types/locations/global/entryLinkTypes"
 _LINK_TYPES = {
-    "synonym": "projects/dataplex-types/locations/global/entryLinkTypes/synonym",
-    "related": "projects/dataplex-types/locations/global/entryLinkTypes/related",
-    "describes": (
-        "projects/dataplex-types/locations/global/entryLinkTypes/definition"
-    ),
+    "synonym": f"{_LINK_TYPE_BASE}/synonym",
+    "related": f"{_LINK_TYPE_BASE}/related",
+    "definition": f"{_LINK_TYPE_BASE}/definition",
+    "schema-join": f"{_LINK_TYPE_BASE}/schema-join",
 }
 
 
@@ -77,7 +79,7 @@ def create_entry_link(
     glossary_id: str,
     term_id: str,
     target_entry_name: str,
-    relationship: str = "describes",
+    relationship: str = "definition",
     entry_link_id: Optional[str] = None,
     location: Optional[str] = None,
 ) -> Dict:
@@ -89,7 +91,8 @@ def create_entry_link(
       target_entry_name: Fully-qualified entry name (the asset side of the
           relationship), e.g.
           ``projects/p/locations/us/entryGroups/g/entries/bigquery:p.dataset.table``.
-      relationship: One of ``synonym``, ``related``, ``describes``.
+      relationship: One of ``synonym``, ``related``, ``definition``,
+          ``schema-join``. Defaults to ``definition`` (term defines asset).
       entry_link_id: Optional ID; auto-generated if omitted.
       location: Dataplex location for the link (defaults to target's location).
   """
