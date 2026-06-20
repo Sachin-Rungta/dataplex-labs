@@ -1,4 +1,4 @@
-"""Ingestion sub-agent: builds the context graph."""
+"""Ingestion sub-agent: builds the context graph and warms embeddings."""
 
 import os
 
@@ -9,6 +9,7 @@ from ..config import get_model_name
 from ..tools import (
     build_context_graph,
     documentai_status,
+    embed_context_graph,
     extract_with_documentai,
     knowledge_catalog_multi_search,
     list_gcs_documents,
@@ -31,7 +32,8 @@ ingestion_agent = llm_agent.Agent(
     name="glossary_ingestion_agent",
     description=(
         "Builds a context graph from Knowledge Catalog entries and / or"
-        " unstructured GCS documents to ground glossary recommendations."
+        " unstructured GCS documents and warms the embedding cache to"
+        " ground glossary + link recommendations."
     ),
     instruction=_load_instruction(),
     tools=[
@@ -42,5 +44,6 @@ ingestion_agent = llm_agent.Agent(
         documentai_status,
         build_context_graph,
         summarize_context_graph,
+        embed_context_graph,
     ],
 )

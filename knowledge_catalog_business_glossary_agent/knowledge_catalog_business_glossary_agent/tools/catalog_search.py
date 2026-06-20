@@ -7,6 +7,8 @@ knowledge_catalog_discovery_agent for behavioral parity.
 """
 
 import concurrent.futures
+import hashlib
+import json
 import logging
 from typing import Dict, List, Union
 
@@ -26,6 +28,25 @@ _TRANSIENT_RETRY = retry.Retry(
     multiplier=1.0,
     timeout=9.0,
 )
+
+# Per-process cache so repeated multi-search calls in the same turn don't
+# hit the Dataplex API twice. The cache is keyed by
+# ``(sorted(queries), project)`` and stores the full response dict.
+_SEARCH_CACHE: Dict[str, Dict] = {}
+
+
+def _cache_key(queries: List[str], project: str) -> str:
+  payload = json.dumps(
+      {"q": sorted(queries), "p": project},
+      sort_keys=True,
+      ensure_ascii=False,
+  )
+  return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def clear_search_cache() -> None:
+  """Drops the in-process catalog search cache (used by tests)."""
+  _SEARCH_CACHE.clear()
 
 
 def _client() -> dataplex_v1.CatalogServiceClient:
@@ -124,6 +145,16 @@ def knowledge_catalog_multi_search(
   if not queries:
     return {"results": []}
 
+  try:
+    project = get_consumer_project()
+  except ValueError as e:
+    return {"error": str(e)}
+
+  cache_key = _cache_key(queries, project)
+  if cache_key in _SEARCH_CACHE:
+    cached = _SEARCH_CACHE[cache_key]
+    return {**cached, "cached": True}
+
   page_size = 100
   per_query: List[List[Dict]] = []
   errors: List[str] = []
@@ -169,7 +200,9 @@ def knowledge_catalog_multi_search(
     concurrent.futures.wait(ctx_futures)
     contexts = [f.result() for f in ctx_futures]
 
-  return {
+  payload = {
       "results": merged,
       "combined_context": "\n\n".join(filter(None, contexts)),
   }
+  _SEARCH_CACHE[cache_key] = payload
+  return payload
