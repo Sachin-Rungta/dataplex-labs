@@ -1,5 +1,15 @@
 """Tools for the Business Glossary Agent."""
 
+# Remove urllib3's pyOpenSSL bridge BEFORE any tool that uses HTTPS
+# (Storage, Dataplex, Vertex) initializes a connection pool. Otherwise
+# corp envs that pre-inject pyOpenSSL hit
+# "Context has already been used to create a Connection" mid-run.
+try:
+  from urllib3.contrib import pyopenssl as _pyopenssl  # type: ignore
+  _pyopenssl.extract_from_urllib3()
+except Exception:  # pylint: disable=broad-except
+  pass
+
 from .catalog_search import (
     clear_search_cache,
     knowledge_catalog_multi_search,

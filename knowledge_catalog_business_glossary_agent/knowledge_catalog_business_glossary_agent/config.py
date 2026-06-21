@@ -36,7 +36,7 @@ def get_model_name() -> str:
   """Full Gemini model path used by the agent."""
   project = get_consumer_project()
   model = os.environ.get(
-      "GLOSSARY_AGENT_MODEL", "gemini-3-flash-preview"
+      "GLOSSARY_AGENT_MODEL", "gemini-2.5-flash"
   )
   return (
       f"projects/{project}/locations/global/publishers/google/models/{model}"
@@ -46,7 +46,7 @@ def get_model_name() -> str:
 def get_classifier_model() -> str:
   """Bare Gemini model id used by the relationship classifier (no path)."""
   return os.environ.get(
-      "GLOSSARY_AGENT_CLASSIFIER_MODEL", "gemini-3-flash-preview"
+      "GLOSSARY_AGENT_CLASSIFIER_MODEL", "gemini-2.5-flash"
   )
 
 

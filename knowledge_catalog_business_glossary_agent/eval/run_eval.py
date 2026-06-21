@@ -32,6 +32,17 @@ The combined report lands at:
 
 from __future__ import annotations
 
+# SSL compat — must run BEFORE any HTTPS connection is opened. Some corp
+# Python environments inject pyOpenSSL into urllib3, and the resulting
+# bridge fails mid-run with "Context has already been used to create a
+# Connection, it cannot be mutated again". Reverting to stdlib SSL
+# avoids that. No-op when pyOpenSSL isn't injected.
+try:
+  from urllib3.contrib import pyopenssl as _pyopenssl  # type: ignore
+  _pyopenssl.extract_from_urllib3()
+except Exception:  # pylint: disable=broad-except
+  pass
+
 import argparse
 import json
 import logging

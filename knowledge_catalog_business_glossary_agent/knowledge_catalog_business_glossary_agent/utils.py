@@ -4,6 +4,18 @@ import logging
 import re
 from typing import Optional, Tuple
 
+# Some corp Python environments inject pyOpenSSL into urllib3, which then
+# raises "Context has already been used to create a Connection, it cannot
+# be mutated again" when multiple Google clients (Storage, AI Platform,
+# Dataplex) build new HTTPS connections from the same process. Reverting
+# urllib3 to the stdlib ssl module here removes the conflict. Harmless
+# when pyOpenSSL isn't injected (the import is wrapped in try/except).
+try:
+  from urllib3.contrib import pyopenssl as _pyopenssl  # type: ignore
+  _pyopenssl.extract_from_urllib3()
+except Exception:  # pylint: disable=broad-except
+  pass
+
 import google.auth
 import google.auth.transport.requests
 
