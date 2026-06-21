@@ -400,6 +400,30 @@ gsutil -m cp "$TMP"/*.md "gs://$BUCKET/" >/dev/null
 ok "Uploaded 5 markdown docs to gs://$BUCKET/"
 
 # ---------------------------------------------------------------------------
+# Binary doc — generates a single PDF from the glossary draft so Document
+# AI Layout Parser actually gets exercised end-to-end. The agent's GCS
+# reader will route the .pdf through DocAI when DOCUMENT_AI_PROCESSOR_ID
+# is set; without DocAI, the file will appear in the doc list with
+# status: skipped (which is the steward's signal that DocAI is off).
+# ---------------------------------------------------------------------------
+
+step "Generating PDF for DocAI exercise"
+MAKE_PDF_HELPER="$(dirname "${BASH_SOURCE[0]}")/lib/make_pdf.py"
+if [[ ! -f "$MAKE_PDF_HELPER" ]]; then
+  warn "Helper not found at $MAKE_PDF_HELPER; skipping PDF generation."
+else
+  PDF_OUT="$TMP/06-customer-glossary-draft.pdf"
+  if python3 "$MAKE_PDF_HELPER" \
+      "Customer Glossary - Working Draft" \
+      "$TMP/01-customer-glossary-draft.md" >"$PDF_OUT" 2>/dev/null; then
+    gsutil cp "$PDF_OUT" "gs://$BUCKET/" >/dev/null
+    ok "Uploaded gs://$BUCKET/06-customer-glossary-draft.pdf"
+  else
+    warn "PDF generation failed; markdown-only upload completed."
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # 3. Summary
 # ---------------------------------------------------------------------------
 
@@ -420,6 +444,10 @@ Docs:
   - 03-customer-lifecycle.md
   - 04-support-policy.md
   - 05-kpi-definitions.md
+  - 06-customer-glossary-draft.pdf   (routed through Document AI Layout
+                                      Parser when DOCUMENT_AI_PROCESSOR_ID
+                                      is set; otherwise listed as
+                                      'status: skipped' in the eval report)
 
 Knowledge Catalog typically indexes new BigQuery tables within 5–15
 minutes. After that, run:

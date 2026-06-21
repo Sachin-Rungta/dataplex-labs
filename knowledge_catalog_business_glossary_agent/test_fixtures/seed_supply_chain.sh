@@ -347,6 +347,25 @@ MD
 gsutil -m cp "$TMP"/*.md "gs://$BUCKET/supply-chain/" >/dev/null
 ok "Uploaded 5 markdown docs to gs://$BUCKET/supply-chain/"
 
+# Binary doc — generates a single PDF so Document AI Layout Parser gets
+# exercised end-to-end. Routed through DocAI by the agent's GCS reader
+# when DOCUMENT_AI_PROCESSOR_ID is set.
+step "Generating PDF for DocAI exercise"
+MAKE_PDF_HELPER="$(dirname "${BASH_SOURCE[0]}")/lib/make_pdf.py"
+if [[ ! -f "$MAKE_PDF_HELPER" ]]; then
+  warn "Helper not found at $MAKE_PDF_HELPER; skipping PDF generation."
+else
+  PDF_OUT="$TMP/06-procurement-glossary-draft.pdf"
+  if python3 "$MAKE_PDF_HELPER" \
+      "Procurement Glossary - Working Draft" \
+      "$TMP/01-procurement-glossary-draft.md" >"$PDF_OUT" 2>/dev/null; then
+    gsutil cp "$PDF_OUT" "gs://$BUCKET/supply-chain/" >/dev/null
+    ok "Uploaded gs://$BUCKET/supply-chain/06-procurement-glossary-draft.pdf"
+  else
+    warn "PDF generation failed; markdown-only upload completed."
+  fi
+fi
+
 step "Done"
 cat <<EOF
 BigQuery dataset: $PROJECT:$DATASET
@@ -364,6 +383,9 @@ Docs:
   - 03-supplier-tiering.md
   - 04-shipment-sla.md
   - 05-supply-kpi-definitions.md
+  - 06-procurement-glossary-draft.pdf  (routed through Document AI Layout
+                                        Parser when DOCUMENT_AI_PROCESSOR_ID
+                                        is set; otherwise 'status: skipped')
 
 Wait 5-15 min for Knowledge Catalog to index, then in the agent:
 
