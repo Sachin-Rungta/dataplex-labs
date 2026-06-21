@@ -84,130 +84,202 @@ logger = logging.getLogger("eval")
 # Scenario presets
 # ---------------------------------------------------------------------------
 
-STARTER_GLOSSARY_ID = "customer-360-glossary"
-STARTER_GLOSSARY_DISPLAY = "Customer 360 Glossary"
-STARTER_GLOSSARY_DESCRIPTION = (
-    "Seed glossary used by the eval harness to test extend-mode flows."
-    " Intentionally partial — covers two categories and six terms drawn"
-    " from the golden set so the agent has both real duplicates to skip"
-    " and obvious gaps to fill."
-)
-STARTER_SEED_CATEGORIES = [
-    {
-        "id": "customer-profile",
-        "display_name": "Customer Profile",
-        "description": "Identity and structural attributes of a customer.",
+# Per-domain starter glossaries used by extend-mode scenarios. Each is
+# deliberately partial coverage of its golden set so the agent has real
+# duplicates to skip AND obvious gaps to fill. Add a new domain by
+# dropping a key here (and the matching golden YAML under
+# eval/golden/<domain>/).
+STARTER_GLOSSARIES: Dict[str, Dict] = {
+    "customer_360": {
+        "id": "customer-360-glossary",
+        "display_name": "Customer 360 Glossary",
+        "description": (
+            "Seed glossary used by the eval harness to test extend-mode"
+            " flows. Intentionally partial."
+        ),
+        "categories": [
+            {
+                "id": "customer-profile",
+                "display_name": "Customer Profile",
+                "description": "Identity and structural attributes of a customer.",
+            },
+            {
+                "id": "subscription",
+                "display_name": "Subscription",
+                "description": "Paid or free subscription accounts.",
+            },
+        ],
+        "terms": [
+            # Customer Profile
+            {
+                "id": "customer",
+                "display_name": "Customer",
+                "description": "An individual or entity that has created an account with us.",
+                "category_id": "customer-profile",
+            },
+            {
+                "id": "customer-segment",
+                "display_name": "Customer Segment",
+                "description": "Go-to-market segment a customer belongs to (Enterprise / SMB / Consumer).",
+                "category_id": "customer-profile",
+            },
+            {
+                "id": "customer-lifetime-value",
+                "display_name": "Customer Lifetime Value",
+                "description": "Modeled total revenue expected from a customer over the relationship.",
+                "category_id": "customer-profile",
+            },
+            # Subscription
+            {
+                "id": "subscription-account",
+                "display_name": "Subscription Account",
+                "description": "A paid or free subscription owned by a customer.",
+                "category_id": "subscription",
+            },
+            {
+                "id": "plan-tier",
+                "display_name": "Plan Tier",
+                "description": "Subscription plan tier (Free, Pro, or Enterprise).",
+                "category_id": "subscription",
+            },
+            {
+                "id": "monthly-recurring-revenue",
+                "display_name": "Monthly Recurring Revenue",
+                "description": "Monthly Recurring Revenue in USD across active accounts.",
+                "category_id": "subscription",
+            },
+        ],
     },
-    {
-        "id": "subscription",
-        "display_name": "Subscription",
-        "description": "Paid or free subscription accounts.",
+    "supply_chain": {
+        "id": "supply-chain-glossary",
+        "display_name": "Supply Chain Glossary",
+        "description": (
+            "Seed glossary used by the eval harness to test extend-mode"
+            " flows for the supply-chain domain. Intentionally partial."
+        ),
+        "categories": [
+            {
+                "id": "suppliers",
+                "display_name": "Suppliers",
+                "description": "Vendor master and supplier tiering.",
+            },
+            {
+                "id": "procurement",
+                "display_name": "Procurement",
+                "description": "Purchase orders and committed spend.",
+            },
+        ],
+        "terms": [
+            {
+                "id": "supplier",
+                "display_name": "Supplier",
+                "description": "A legal entity approved to provide goods or services.",
+                "category_id": "suppliers",
+            },
+            {
+                "id": "strategic-supplier",
+                "display_name": "Strategic Supplier",
+                "description": "A Supplier in the Strategic tier — critical, single-source.",
+                "category_id": "suppliers",
+            },
+            {
+                "id": "purchase-order",
+                "display_name": "Purchase Order",
+                "description": "A commercial commitment to buy from a Supplier.",
+                "category_id": "procurement",
+            },
+            {
+                "id": "committed-spend",
+                "display_name": "Committed Spend",
+                "description": "Sum of issued, acknowledged, and fulfilled PO totals in USD.",
+                "category_id": "procurement",
+            },
+        ],
     },
-]
-STARTER_SEED_TERMS = [
-    # Customer Profile category (3 of ~6 golden customer-profile terms)
-    {
-        "id": "customer",
-        "display_name": "Customer",
-        "description": "An individual or entity that has created an account with us.",
-        "category_id": "customer-profile",
-    },
-    {
-        "id": "customer-segment",
-        "display_name": "Customer Segment",
-        "description": "Go-to-market segment a customer belongs to (Enterprise / SMB / Consumer).",
-        "category_id": "customer-profile",
-    },
-    {
-        "id": "customer-lifetime-value",
-        "display_name": "Customer Lifetime Value",
-        "description": "Modeled total revenue expected from a customer over the relationship.",
-        "category_id": "customer-profile",
-    },
-    # Subscription category (3 of ~6 golden subscription terms)
-    {
-        "id": "subscription-account",
-        "display_name": "Subscription Account",
-        "description": "A paid or free subscription owned by a customer.",
-        "category_id": "subscription",
-    },
-    {
-        "id": "plan-tier",
-        "display_name": "Plan Tier",
-        "description": "Subscription plan tier (Free, Pro, or Enterprise).",
-        "category_id": "subscription",
-    },
-    {
-        "id": "monthly-recurring-revenue",
-        "display_name": "Monthly Recurring Revenue",
-        "description": "Monthly Recurring Revenue in USD across active accounts.",
-        "category_id": "subscription",
-    },
-]
+}
 
 
-def _scenarios(project: str) -> List[Dict]:
-  gcs_uri = f"gs://{project}-glossary-test/"
-  return [
+def _scenarios_for_domain(project: str, golden: GoldenSet) -> List[Dict]:
+  """Builds the four canonical scenarios for one golden set.
+
+  Scenarios 3 + 4 are only emitted when a starter-glossary template
+  exists for this domain (extend mode needs an existing glossary).
+  """
+  domain = golden.domain
+  gcs_uri = golden.gcs_uri  # already ${PROJECT}-substituted by the loader
+  catalog_queries = list(golden.catalog_queries)
+  scope_hint = golden.scope_hint
+  starter = STARTER_GLOSSARIES.get(domain)
+  starter_id = starter["id"] if starter else None
+
+  scenarios: List[Dict] = [
       {
-          "id": "1-new-no-gcs",
-          "label": "New glossary — NL only (no GCS)",
+          "id": f"{domain}/1-new-no-gcs",
+          "label": f"[{domain}] New glossary — NL only (no GCS)",
+          "domain": domain,
           "mode": "new",
           "query": (
-              f"Recommend a new glossary for our customer-360 domain in"
+              f"Recommend a new glossary for our {domain.replace('_', '-')} domain in"
               f" project {project}. Focus on business concepts, not"
               f" column-name fragments."
           ),
-          "scope_hint": "customer 360 subscription",
-          "catalog_queries": ["customer_360", "customers system=bigquery"],
+          "scope_hint": scope_hint,
+          "catalog_queries": catalog_queries,
           "gcs_uri": None,
-          "golden": "customer_360",
+          "golden": domain,
       },
       {
-          "id": "2-new-with-gcs",
-          "label": "New glossary — NL + GCS context",
+          "id": f"{domain}/2-new-with-gcs",
+          "label": f"[{domain}] New glossary — NL + GCS context",
+          "domain": domain,
           "mode": "new",
           "query": (
-              f"Recommend a new glossary for our customer-360 domain in"
+              f"Recommend a new glossary for our {domain.replace('_', '-')} domain in"
               f" project {project}, grounded in {gcs_uri}. Focus on"
               f" business concepts, not column-name fragments."
           ),
-          "scope_hint": "customer 360 subscription",
-          "catalog_queries": ["customer_360", "customers system=bigquery"],
+          "scope_hint": scope_hint,
+          "catalog_queries": catalog_queries,
           "gcs_uri": gcs_uri,
-          "golden": "customer_360",
-      },
-      {
-          "id": "3-extend-no-gcs",
-          "label": "Extend existing glossary — catalog signal only (no GCS)",
-          "mode": "extend",
-          "query": (
-              f"Add new terms and categories to the {STARTER_GLOSSARY_ID}"
-              f" glossary using the customer_360 catalog tables only."
-              f" Skip duplicates of existing terms."
-          ),
-          "scope_hint": "customer 360 subscription",
-          "catalog_queries": ["customer_360", "customers system=bigquery"],
-          "gcs_uri": None,
-          "glossary_id": STARTER_GLOSSARY_ID,
-          "golden": "customer_360",
-      },
-      {
-          "id": "4-extend-with-gcs",
-          "label": "Extend existing glossary — NL + GCS context",
-          "mode": "extend",
-          "query": (
-              f"Add new terms and categories to the {STARTER_GLOSSARY_ID}"
-              f" glossary using {gcs_uri} plus the customer_360 catalog."
-              f" Skip duplicates of existing terms."
-          ),
-          "scope_hint": "customer 360 subscription",
-          "catalog_queries": ["customer_360", "customers system=bigquery"],
-          "gcs_uri": gcs_uri,
-          "glossary_id": STARTER_GLOSSARY_ID,
-          "golden": "customer_360",
+          "golden": domain,
       },
   ]
+  if starter_id:
+    scenarios.extend([
+        {
+            "id": f"{domain}/3-extend-no-gcs",
+            "label": f"[{domain}] Extend existing glossary — catalog signal only",
+            "domain": domain,
+            "mode": "extend",
+            "query": (
+                f"Add new terms and categories to the {starter_id} glossary"
+                f" using the {golden.bq_dataset} catalog tables only."
+                f" Skip duplicates of existing terms."
+            ),
+            "scope_hint": scope_hint,
+            "catalog_queries": catalog_queries,
+            "gcs_uri": None,
+            "glossary_id": starter_id,
+            "golden": domain,
+        },
+        {
+            "id": f"{domain}/4-extend-with-gcs",
+            "label": f"[{domain}] Extend existing glossary — NL + GCS context",
+            "domain": domain,
+            "mode": "extend",
+            "query": (
+                f"Add new terms and categories to the {starter_id} glossary"
+                f" using {gcs_uri} plus the {golden.bq_dataset} catalog."
+                f" Skip duplicates of existing terms."
+            ),
+            "scope_hint": scope_hint,
+            "catalog_queries": catalog_queries,
+            "gcs_uri": gcs_uri,
+            "glossary_id": starter_id,
+            "golden": domain,
+        },
+    ])
+  return scenarios
 
 
 # ---------------------------------------------------------------------------
@@ -215,32 +287,32 @@ def _scenarios(project: str) -> List[Dict]:
 # ---------------------------------------------------------------------------
 
 def ensure_starter_glossary(
-    glossary_id: str = STARTER_GLOSSARY_ID,
+    template: Dict,
     location: Optional[str] = None,
 ) -> Dict:
-  """Idempotent: creates a minimal starter glossary if missing.
+  """Idempotent: creates a starter glossary if missing.
 
-  Used by extend-mode scenarios so the eval can run end-to-end without
-  the steward first manually creating something.
+  ``template`` is one of the values from ``STARTER_GLOSSARIES`` — it
+  carries the glossary id, display name, description, categories, and
+  terms to seed.
   """
   loc = location or get_default_location()
+  glossary_id = template["id"]
 
   existing = get_glossary(glossary_id, location=loc)
   if "error" not in existing:
     return {"created": False, "glossary_id": glossary_id, "location": loc}
 
-  # Create glossary
   g = create_glossary(
       glossary_id=glossary_id,
-      display_name=STARTER_GLOSSARY_DISPLAY,
-      description=STARTER_GLOSSARY_DESCRIPTION,
+      display_name=template["display_name"],
+      description=template["description"],
       location=loc,
   )
   if "error" in g:
-    return {"error": f"failed to create starter glossary: {g}"}
+    return {"error": f"failed to create starter glossary {glossary_id}: {g}"}
 
-  # Categories
-  for cat in STARTER_SEED_CATEGORIES:
+  for cat in template.get("categories", []):
     c = create_glossary_category(
         glossary_id=glossary_id,
         category_id=cat["id"],
@@ -251,8 +323,7 @@ def ensure_starter_glossary(
     if "error" in c:
       return {"error": f"failed to create starter category {cat['id']}: {c}"}
 
-  # Terms
-  for t in STARTER_SEED_TERMS:
+  for t in template.get("terms", []):
     r = create_glossary_term(
         glossary_id=glossary_id,
         term_id=t["id"],
@@ -268,8 +339,8 @@ def ensure_starter_glossary(
       "created": True,
       "glossary_id": glossary_id,
       "location": loc,
-      "seed_categories": [c["id"] for c in STARTER_SEED_CATEGORIES],
-      "seed_terms": [t["id"] for t in STARTER_SEED_TERMS],
+      "seed_categories": [c["id"] for c in template.get("categories", [])],
+      "seed_terms": [t["id"] for t in template.get("terms", [])],
   }
 
 
@@ -407,8 +478,20 @@ def main() -> int:
       help="GCP project (defaults to $GOOGLE_CLOUD_PROJECT).",
   )
   parser.add_argument(
+      "--domain",
+      action="append",
+      default=None,
+      help=(
+          "Run only the named golden-set domain(s). Repeatable."
+          " Default: every golden set under --golden-root."
+      ),
+  )
+  parser.add_argument(
       "--scenario",
-      help="Run only the named scenario id (1, 2, 3, or 4). Default: all.",
+      help=(
+          "Run only the matching scenario id (e.g. '1-new-no-gcs',"
+          " 'customer_360/2-new-with-gcs', or just '2'). Default: all."
+      ),
   )
   parser.add_argument(
       "--golden-root",
@@ -457,14 +540,26 @@ def main() -> int:
     print("Set --project or GOOGLE_CLOUD_PROJECT.", file=sys.stderr)
     return 2
 
-  # Build the scenario list.
+  # Build scenarios. Freeform mode is single-shot; otherwise discover every
+  # golden set under --golden-root and emit per-domain scenarios.
+  goldens: Dict[str, GoldenSet] = {}
+  scenarios: List[Dict] = []
+
   if args.query:
     if not args.mode:
       print("--query requires --mode (new / extend / extend-terms-only).", file=sys.stderr)
       return 2
+    p = Path(args.golden_root) / args.golden_domain / "expected.yaml"
+    if not p.exists():
+      print(f"Golden YAML not found: {p}", file=sys.stderr)
+      return 2
+    goldens[args.golden_domain] = load_golden_set(
+        p, substitutions={"PROJECT": args.project}
+    )
     scenarios = [{
-        "id": "0-freeform",
+        "id": f"{args.golden_domain}/0-freeform",
         "label": "Freeform query",
+        "domain": args.golden_domain,
         "mode": args.mode,
         "query": args.query,
         "scope_hint": args.scope_hint,
@@ -474,52 +569,70 @@ def main() -> int:
         "golden": args.golden_domain,
     }]
   else:
-    scenarios = _scenarios(args.project)
+    # Auto-discover every golden set, optionally filtered by --domain.
+    all_golden_paths = sorted(Path(args.golden_root).rglob("expected.yaml"))
+    if not all_golden_paths:
+      print(f"No golden sets found under {args.golden_root}.", file=sys.stderr)
+      return 2
+    domains_wanted = set(args.domain) if args.domain else None
+    for gp in all_golden_paths:
+      gs = load_golden_set(gp, substitutions={"PROJECT": args.project})
+      if domains_wanted and gs.domain not in domains_wanted:
+        continue
+      goldens[gs.domain] = gs
+      scenarios.extend(_scenarios_for_domain(args.project, gs))
+    if not scenarios:
+      print(
+          f"No scenarios matched --domain={args.domain}." if args.domain
+          else "No scenarios were emitted.",
+          file=sys.stderr,
+      )
+      return 2
     if args.scenario:
       pick = args.scenario
       scenarios = [
           s for s in scenarios
-          if s["id"].startswith(pick) or s["id"] == pick
+          if pick in s["id"]
+          or s["id"].endswith(f"/{pick}")
+          or s["id"].split("/")[-1].startswith(pick)
       ]
       if not scenarios:
         print(
-            f"--scenario={args.scenario} did not match any preset"
-            " (try 1, 2, 3, or 4).",
+            f"--scenario={args.scenario} did not match any preset.",
             file=sys.stderr,
         )
         return 2
 
-  # Load golden sets we'll need.
-  needed_goldens = sorted({s["golden"] for s in scenarios})
-  goldens: Dict[str, GoldenSet] = {}
-  for d in needed_goldens:
-    p = Path(args.golden_root) / d / "expected.yaml"
-    if not p.exists():
-      print(f"Golden YAML not found: {p}", file=sys.stderr)
-      return 2
-    goldens[d] = load_golden_set(p, substitutions={"PROJECT": args.project})
+  # Seed every starter glossary the chosen scenarios need.
+  starter_info: Dict[str, Dict] = {}
+  needed_starters: Dict[str, Dict] = {}
+  for s in scenarios:
+    if s["mode"] not in ("extend", "extend-terms-only"):
+      continue
+    starter_template = STARTER_GLOSSARIES.get(s.get("domain", ""))
+    if not starter_template:
+      continue
+    if s.get("glossary_id") and s["glossary_id"] != starter_template["id"]:
+      # Steward pointed at a custom glossary they own; don't auto-seed.
+      continue
+    needed_starters[starter_template["id"]] = starter_template
 
-  # Seed starter glossary if any extend-mode scenario needs it.
-  starter_info: Optional[Dict] = None
-  needs_starter = any(
-      s["mode"] in ("extend", "extend-terms-only")
-      and s.get("glossary_id") == STARTER_GLOSSARY_ID
-      for s in scenarios
-  )
-  if needs_starter and not args.no_seed_glossary:
-    starter_info = ensure_starter_glossary()
-    if starter_info.get("error"):
-      print(
-          f"Starter-glossary setup failed: {starter_info['error']}",
-          file=sys.stderr,
-      )
-      print(
-          "Re-run with --no-seed-glossary after creating one manually,"
-          " or fix permissions and retry.",
-          file=sys.stderr,
-      )
-      return 3
-    logger.info("Starter glossary: %s", starter_info)
+  if needed_starters and not args.no_seed_glossary:
+    for sid, template in needed_starters.items():
+      info = ensure_starter_glossary(template)
+      if info.get("error"):
+        print(
+            f"Starter-glossary setup failed for {sid}: {info['error']}",
+            file=sys.stderr,
+        )
+        print(
+            "Re-run with --no-seed-glossary after creating one manually,"
+            " or fix permissions and retry.",
+            file=sys.stderr,
+        )
+        return 3
+      starter_info[sid] = info
+      logger.info("Starter glossary [%s]: %s", sid, info)
 
   # Run each scenario.
   results: Dict[str, Dict] = {}

@@ -1,6 +1,8 @@
 # Evaluation Harness
 
-One Python script. Four scenarios. One combined report.
+One Python script. Four scenarios per domain. Every golden set under
+`eval/golden/<domain>/expected.yaml` runs automatically. One combined
+report covering all domains.
 
 ```
 eval/
@@ -26,11 +28,14 @@ eval/
 | 4 | EXTEND existing glossary, NL + GCS | `extend` | yes | auto-seeded |
 
 For scenarios 3 + 4 the script auto-creates a partial-coverage
-"starter glossary" (`customer-360-glossary` with two categories —
-*Customer Profile* and *Subscription* — and six seed terms drawn
-from the golden set: *Customer*, *Customer Segment*, *Customer
-Lifetime Value*, *Subscription Account*, *Plan Tier*, *Monthly
-Recurring Revenue*) the first time you run it, so the agent has
+"starter glossary" per domain. The customer-360 starter has two
+categories (*Customer Profile*, *Subscription*) and six seed terms
+(*Customer*, *Customer Segment*, *Customer Lifetime Value*,
+*Subscription Account*, *Plan Tier*, *Monthly Recurring Revenue*).
+The supply-chain starter has two categories (*Suppliers*,
+*Procurement*) and four seed terms (*Supplier*, *Strategic
+Supplier*, *Purchase Order*, *Committed Spend*). Both are
+intentionally partial coverage of their golden set so the agent has
 both real duplicates to skip and obvious gaps to fill. Pass
 `--no-seed-glossary` if you'd rather point at a glossary you've
 built yourself.
@@ -46,11 +51,16 @@ export $(grep -v '^#' .env | xargs)
 ./test_fixtures/seed_synthetic_data.sh --project=$GOOGLE_CLOUD_PROJECT
 # wait 5-15 min for Knowledge Catalog to index
 
-# All four scenarios with LLM-as-Judge:
+# Every golden set, all four scenarios each, with LLM-as-Judge:
 python -m eval.run_eval
 
-# Just one scenario:
+# Limit to one domain (golden-set key):
+python -m eval.run_eval --domain customer_360
+python -m eval.run_eval --domain customer_360 --domain supply_chain   # multi
+
+# Limit to one scenario (works across domains):
 python -m eval.run_eval --scenario 2
+python -m eval.run_eval --scenario customer_360/2-new-with-gcs
 
 # Fast / free run — structural metrics only, no LLM judging:
 python -m eval.run_eval --skip-judges
@@ -58,7 +68,8 @@ python -m eval.run_eval --skip-judges
 # Freeform: bring your own query
 python -m eval.run_eval \
     --query "Recommend a glossary for our marketing domain" \
-    --mode new --scope-hint "marketing campaign lead funnel"
+    --mode new --scope-hint "marketing campaign lead funnel" \
+    --golden-domain customer_360
 ```
 
 ## What lands in `eval/results/`
@@ -113,23 +124,40 @@ ground truth lives. To grade against your own expectations, edit:
   `DATAPLEX_GLOSSARY_LOCATION` (default `global`). If your scenario
   needs a different location, set the env var before running.
 
-## Adding a new scenario
+## Adding a new domain
 
-Open `eval/run_eval.py` and append a dict to `_scenarios()`:
+1. Drop an `expected.yaml` under `eval/golden/<your-domain>/` modelled
+   on `customer_360/expected.yaml` (set `domain`, `prompt`, `mode`,
+   `scope_hint`, `gcs_uri`, `bq_dataset`, `catalog_queries`,
+   `expected_categories`, `expected_terms`).
+2. Optional: write a seed script under `test_fixtures/` to populate
+   the BigQuery dataset + GCS docs the YAML references.
+3. Optional: add an entry to `STARTER_GLOSSARIES` in
+   `eval/run_eval.py` so extend-mode scenarios auto-create a partial
+   starter glossary for the new domain. Without this, only the two
+   "new glossary" scenarios will run for that domain.
+
+Re-run `python -m eval.run_eval` — the new domain appears in the same
+report alongside the existing ones.
+
+## Adding a new scenario shape
+
+Edit `_scenarios_for_domain` in `eval/run_eval.py` and append a dict:
 
 ```python
 {
-    "id": "5-my-thing",
-    "label": "What I'm testing",
+    "id": f"{domain}/5-my-thing",
+    "label": f"[{domain}] What I'm testing",
+    "domain": domain,
     "mode": "new",                              # or "extend" / "extend-terms-only"
     "query": "Recommend a glossary for ...",
-    "scope_hint": "...",
-    "catalog_queries": ["..."],
-    "gcs_uri": "gs://..." or None,
-    "glossary_id": "..." or None,
-    "golden": "customer_360",                    # which golden set to score against
-},
+    "scope_hint": scope_hint,
+    "catalog_queries": catalog_queries,
+    "gcs_uri": gcs_uri or None,
+    "glossary_id": starter_id or None,
+    "golden": domain,
+}
 ```
 
-Re-run `python -m eval.run_eval` — the new scenario joins the others
-in the same report.
+Because `_scenarios_for_domain` runs per golden set, your new scenario
+automatically runs for every domain.
