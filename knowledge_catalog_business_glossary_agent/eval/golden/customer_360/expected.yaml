@@ -1,0 +1,216 @@
+# Golden set for the customer-360 synthetic domain.
+#
+# Conventions:
+#   * ${PROJECT} is substituted at runtime with $GOOGLE_CLOUD_PROJECT.
+#   * Entry matching uses ``entry_suffix`` — the eval harness matches
+#     any catalog entry whose resource name ENDS with this string
+#     (handles project-number vs project-id and location variability).
+#   * ``aliases`` are alternate display names the LLM might legitimately
+#     pick for the same concept. Term matching counts an alias hit as a
+#     true positive.
+
+domain: customer_360
+description: >
+  Synthetic customer / subscription domain. Tests the agent's ability
+  to extract business concepts (Active Customer, MRR, NRR) from a mix
+  of schema descriptions and markdown business docs.
+
+# ---------------------------------------------------------------------------
+# Primary test prompt — exercises Path A (new glossary, full pipeline).
+# ---------------------------------------------------------------------------
+prompt: |
+  Recommend a new glossary for our customer-360 domain in project
+  ${PROJECT}, grounded in gs://${PROJECT}-glossary-test/. Focus on
+  business concepts, not column-name fragments.
+
+mode: new
+scope_hint: customer 360 subscription
+gcs_uri: gs://${PROJECT}-glossary-test/
+bq_dataset: customer_360
+catalog_queries:
+  - customer_360
+  - customers system=bigquery
+  - subscription billing customer
+
+# ---------------------------------------------------------------------------
+# Expected glossary identity (new-mode only).
+# ---------------------------------------------------------------------------
+expected_glossary:
+  id_substrings: [customer]
+  display_name_substring: customer
+
+# ---------------------------------------------------------------------------
+# Expected categories. Eval scorer accepts any category whose display
+# name fuzzy-matches one of ``aliases`` (cosine >= 0.65 or LLM judge
+# says "same concept").
+# ---------------------------------------------------------------------------
+expected_categories:
+  - display_name: Customer Profile
+    description: Identity and structural attributes of a customer.
+    aliases: [Customer, Customer Identity, Profile, Customers]
+  - display_name: Subscription
+    description: Paid or free subscription accounts; plans, billing, churn.
+    aliases: [Subscriptions, Account, Subscription Management, Billing & Subscriptions]
+  - display_name: Transactions
+    description: Revenue and refund events, by account.
+    aliases: [Billing, Revenue, Payments, Transactions & Revenue]
+  - display_name: Support
+    description: Customer support tickets and resolution metrics.
+    aliases: [Customer Support, Tickets, Service]
+  - display_name: Products
+    description: Product catalog / SKU reference data.
+    aliases: [Product Catalog, Catalog, SKUs]
+
+# ---------------------------------------------------------------------------
+# Expected terms (~ 15-20). These are the terms a careful human steward
+# would create for this dataset + doc corpus. Aliases capture
+# legitimately equivalent name choices.
+# ---------------------------------------------------------------------------
+expected_terms:
+  - display_name: Customer
+    description: An individual or entity that has, at any point, created an account.
+    expected_category: Customer Profile
+    aliases: [Account Holder, User]
+    must_link:
+      - entry_suffix: customer_360.customers
+        relationship: definition
+
+  - display_name: Active Customer
+    description: A Customer whose account_status is 'Active' — has at least one non-cancelled subscription.
+    expected_category: Customer Profile
+    aliases: [Active User]
+    must_link:
+      - entry_suffix: customer_360.customers
+        relationship: definition
+
+  - display_name: Customer Segment
+    description: Go-to-market segment the customer belongs to (Enterprise, SMB, Consumer).
+    expected_category: Customer Profile
+    aliases: [Segment, GTM Segment]
+    must_link:
+      - entry_suffix: customer_360.customers
+        relationship: definition
+
+  - display_name: Lifecycle Stage
+    description: Marketing-funnel stage of the customer (Lead, Prospect, Customer, Advocate).
+    expected_category: Customer Profile
+    aliases: [Customer Lifecycle Stage, Funnel Stage]
+    must_link:
+      - entry_suffix: customer_360.customers
+        relationship: definition
+
+  - display_name: Customer Lifetime Value
+    description: Modeled total revenue expected from a customer over the relationship.
+    expected_category: Customer Profile
+    aliases: [CLV, LTV, Lifetime Value]
+    must_link:
+      - entry_suffix: customer_360.customers
+        relationship: definition
+
+  - display_name: Advocate
+    description: A customer in the Advocate lifecycle stage who has opted into referrals.
+    expected_category: Customer Profile
+    aliases: [Customer Advocate]
+
+  - display_name: Subscription Account
+    description: A paid or free subscription owned by a customer.
+    expected_category: Subscription
+    aliases: [Account, Subscription]
+    must_link:
+      - entry_suffix: customer_360.accounts
+        relationship: definition
+
+  - display_name: Plan Tier
+    description: Subscription plan tier (Free, Pro, Enterprise).
+    expected_category: Subscription
+    aliases: [Subscription Tier, Plan]
+    must_link:
+      - entry_suffix: customer_360.accounts
+        relationship: definition
+
+  - display_name: Monthly Recurring Revenue
+    description: Monthly Recurring Revenue in USD across active accounts.
+    expected_category: Subscription
+    aliases: [MRR]
+    must_link:
+      - entry_suffix: customer_360.accounts
+        relationship: definition
+
+  - display_name: Annual Recurring Revenue
+    description: 12 times MRR; standard board-reported revenue metric.
+    expected_category: Subscription
+    aliases: [ARR]
+
+  - display_name: Churn
+    description: Loss of an active subscription when all of a customer's accounts have a non-null canceled_at.
+    expected_category: Subscription
+    aliases: [Customer Churn, Subscription Churn]
+
+  - display_name: Net Revenue Retention
+    description: Starting MRR plus expansion minus churn and contraction, divided by starting MRR.
+    expected_category: Subscription
+    aliases: [NRR]
+
+  - display_name: Transaction
+    description: A billing event (charge, refund, or credit) recorded against an account.
+    expected_category: Transactions
+    aliases: [Billing Transaction]
+    must_link:
+      - entry_suffix: customer_360.transactions
+        relationship: definition
+
+  - display_name: Net Revenue
+    description: Sum of transaction amounts for a period; refunds and credits are negative.
+    expected_category: Transactions
+    aliases: [Revenue, Net Billed Revenue]
+
+  - display_name: Support Ticket
+    description: A support case opened by a customer.
+    expected_category: Support
+    aliases: [Ticket, Customer Support Ticket]
+    must_link:
+      - entry_suffix: customer_360.support_tickets
+        relationship: definition
+
+  - display_name: Ticket Priority
+    description: Severity classification of a support ticket (Low, Medium, High, Critical).
+    expected_category: Support
+    aliases: [Priority]
+    must_link:
+      - entry_suffix: customer_360.support_tickets
+        relationship: definition
+
+  - display_name: Time to Resolution
+    description: Elapsed time between when a ticket was opened and when it was resolved.
+    expected_category: Support
+    aliases: [TTR, Resolution Time]
+
+  - display_name: Product
+    description: A sellable item in the product catalog.
+    expected_category: Products
+    aliases: [SKU, Catalog Item]
+    must_link:
+      - entry_suffix: customer_360.products
+        relationship: definition
+
+# ---------------------------------------------------------------------------
+# Secondary prompts (smoke tests for the conversational paths beyond
+# Path A). The eval harness exercises these only if --include-paths-bc
+# is passed; they don't contribute to the headline metrics.
+# ---------------------------------------------------------------------------
+secondary_prompts:
+  - id: extend_terms
+    mode: extend
+    prompt: |
+      Add more terms and categories to the customer-360 glossary using
+      gs://${PROJECT}-glossary-test/ for additional context. Skip
+      duplicates.
+    target_glossary_id_substrings: [customer]
+
+  - id: extend_terms_only
+    mode: extend-terms-only
+    prompt: |
+      Add only new terms to the customer-360 glossary — keep the
+      categories as they are. Drop any term that doesn't fit an
+      existing category.
+    target_glossary_id_substrings: [customer]

@@ -331,6 +331,28 @@ the env var unset (empty `DOCUMENT_AI_PROCESSOR_ID`,
 
 ---
 
+## Evaluation
+
+One Python script, four scenarios, one combined report scored by an
+LLM-as-Judge. Covers (1) new glossary NL-only, (2) new glossary with
+GCS docs, (3) extend an existing glossary from catalog signal only,
+(4) extend with NL + GCS context.
+
+```bash
+./test_fixtures/seed_synthetic_data.sh --project=$GOOGLE_CLOUD_PROJECT
+# wait 5-15 min for Knowledge Catalog to index
+
+python -m eval.run_eval                # all four scenarios, LLM judging on
+python -m eval.run_eval --scenario 2   # just one
+python -m eval.run_eval --skip-judges  # structural metrics only (free)
+```
+
+Outputs land in `eval/results/eval-<timestamp>.{md,json}` plus
+`eval/results/latest.{md,json}`. Reported per scenario: term P/R/F1/P@K,
+category match rate, category coherence (1-5 rubric), definition
+usefulness (1-5 rubric), link recall, relationship-type accuracy.
+Full guide in [`docs/eval/README.md`](docs/eval/README.md).
+
 ## Safety model
 
 - Recommendations are produced before any write call.

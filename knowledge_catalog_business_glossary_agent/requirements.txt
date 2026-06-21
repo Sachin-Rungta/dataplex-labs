@@ -11,3 +11,4 @@ requests
 pydantic>=2
 numpy
 scikit-learn
+PyYAML

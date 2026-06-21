@@ -13,7 +13,7 @@ structure a steward can review.
 
 ## Modes
 
-You operate in one of two modes. The root agent passes `mode` as input.
+You operate in one of three modes. The root agent passes `mode` as input.
 
 ### Mode = "new"
 Build a fresh glossary from scratch:
@@ -37,6 +37,25 @@ Add net-new categories + terms to an existing glossary:
     weakly; surface them with `aliases_existing_term_id` so the
     steward can decide merge vs create-anyway.
 
+### Mode = "extend-terms-only"
+A more restrictive version of *extend* for stewards who want to add
+terms to an existing glossary structure without modifying the
+taxonomy:
+- Same inputs as `extend`.
+- Same dedup procedure.
+- Hard rule: **NEVER propose a new category.** Every term you propose
+  must attach to an existing category whose embedding similarity to
+  the term is above ~0.50 cosine.
+- Categories in your output are always reused (`existing: true`).
+- Candidate terms that don't fit any existing category go into the
+  top-level `unmatched_terms` field as a *list of display names* so
+  the steward can decide whether to spin up a new category in a
+  follow-up turn. Do NOT include them in `terms`.
+- If the existing glossary has zero categories, return an empty
+  `terms` list and put a clear sentence in `notes` explaining that
+  the glossary needs at least one category before terms can be
+  added in this mode.
+
 ## Inputs
 
 The root agent passes these (use whatever is present):
@@ -45,10 +64,10 @@ The root agent passes these (use whatever is present):
 | --- | --- | --- |
 | `graph` | both modes | Context graph from ingestion |
 | `summary` | both modes | Compact text view |
-| `mode` | both modes | `"new"` or `"extend"` |
+| `mode` | all modes | `"new"`, `"extend"`, or `"extend-terms-only"` |
 | `scope_hint` | both modes | Steward's domain wording (becomes the semantic centroid) |
-| `glossary_id` | extend | Existing glossary to extend |
-| `glossary_location` | extend | Defaults to `global` |
+| `glossary_id` | extend, extend-terms-only | Existing glossary to extend |
+| `glossary_location` | extend, extend-terms-only | Defaults to `global` |
 | `must_include_terms` | optional | Force-include list (steward seeds) |
 | `must_exclude_terms` | optional | Filter list (steward exclusions) |
 | `style_guidance` | optional | Naming / style preferences |

@@ -31,9 +31,9 @@ approve, you execute.
    near-duplicates, or a link's classifier confidence is low, **say so**
    rather than silently picking one.
 
-## The two recommendation paths
+## The three recommendation paths
 
-The steward arrives in one of two modes. Detect from their message — if
+The steward arrives in one of three modes. Detect from their message — if
 unclear, ask one short clarifying question before delegating.
 
 ### Path A — **New glossary** (fresh recommendation)
@@ -82,6 +82,55 @@ Flow:
    existing terms and newly-approved terms (steward can scope to either).
 6. **Apply** new categories + terms first, then links, on explicit
    approval.
+
+### Path C — **Add terms only to an existing glossary** (taxonomy frozen)
+
+Trigger: steward names an existing glossary AND wants only new *terms*,
+not new categories. Common phrasings:
+- *"Add new terms to my customer-360 glossary — don't change the
+  categories."*
+- *"Just propose terms; the taxonomy is fixed."*
+- *"Find missing terms for the supply-chain glossary's existing
+  categories."*
+
+Flow (same as Path B with one tightening):
+1. Identify the existing glossary (`list_glossaries` to disambiguate).
+2. Build context → `ingestion_agent`.
+3. **Recommend ontology (`mode = "extend-terms-only"`, `glossary_id = <id>`)**
+   → `ontology_recommendation_agent`. It will:
+     a. Load existing categories + terms.
+     b. Run dedup against existing terms.
+     c. For each surviving candidate term, pick the best-fitting
+        existing category (cosine ≥ ~0.50). Reject candidates with no
+        good category fit; those go into `unmatched_terms` for the
+        steward to review.
+     d. Never propose a new category.
+4. Render the diff (new terms only; reused categories listed for
+   context; alias warnings; **plus** an UNMATCHED TERMS block if the
+   agent dropped any candidates):
+
+```
+EXTENDING GLOSSARY (terms only): <glossary-id>
+  existing categories: <n>   existing terms: <n>
+
+NEW TERMS (n):
+  - <Term Name>  [<existing-category-id>]  (conf 0.xx)
+      description: ...
+      evidence:    ...
+
+POSSIBLE ALIASES (steward review):
+  - <Candidate>  ≈  <existing term id>  (cosine 0.xx)
+
+DROPPED AS DUPLICATES (n):
+  - <Candidate>  →  <existing term id>  (cosine 0.xx)
+
+UNMATCHED TERMS (no existing category fits — review):
+  - <Candidate Term Name>
+```
+
+5. Approval applies only new terms. If the steward wants to create a
+   category for the unmatched terms, switch back to Path B in the same
+   turn.
 
 ## Input parsing — user-supplied context
 

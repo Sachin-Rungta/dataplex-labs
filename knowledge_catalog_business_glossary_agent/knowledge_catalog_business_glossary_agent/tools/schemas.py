@@ -61,10 +61,20 @@ class OntologyTerm(BaseModel):
 class OntologyRecommendation(BaseModel):
   model_config = ConfigDict(extra="forbid")
 
-  mode: Literal["new", "extend"]
+  # Three operating modes:
+  #   * "new"               — propose a brand-new glossary with identity,
+  #                           categories, and terms.
+  #   * "extend"            — propose net-new categories AND net-new terms
+  #                           for an existing glossary.
+  #   * "extend-terms-only" — propose only net-new terms; reuse existing
+  #                           categories. Never set ``existing: false`` on
+  #                           a category. Drop candidate terms that don't
+  #                           fit any existing category.
+  mode: Literal["new", "extend", "extend-terms-only"]
   # New-mode: glossary identity to create.
   glossary: Optional[OntologyGlossary] = None
-  # Extend-mode: id of the existing glossary we are extending.
+  # Extend / extend-terms-only mode: id of the existing glossary being
+  # extended.
   glossary_id: Optional[str] = None
   glossary_location: Optional[str] = None
   categories: List[OntologyCategory] = Field(default_factory=list)
@@ -74,6 +84,10 @@ class OntologyRecommendation(BaseModel):
   # Set when dedup against an existing glossary found candidate-duplicates
   # the steward should review (not just silently drop).
   dedup_warnings: List[str] = Field(default_factory=list)
+  # extend-terms-only: terms the agent considered but dropped because no
+  # existing category matched well enough. Stewards may want to create a
+  # new category for these.
+  unmatched_terms: List[str] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------

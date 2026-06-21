@@ -1,0 +1,176 @@
+# Golden set for the supply-chain synthetic domain. Same conventions as
+# customer_360/expected.yaml.
+
+domain: supply_chain
+description: >
+  Synthetic procurement / logistics domain. Tests the agent on a
+  vocabulary that does not overlap with the customer-360 corpus —
+  catches any over-fitting to the demo domain.
+
+prompt: |
+  Recommend a new glossary for our supply-chain domain in project
+  ${PROJECT}, grounded in gs://${PROJECT}-glossary-test/supply-chain/.
+  Focus on procurement and logistics business concepts, not
+  column-name fragments.
+
+mode: new
+scope_hint: supply chain procurement logistics
+gcs_uri: gs://${PROJECT}-glossary-test/supply-chain/
+bq_dataset: supply_chain
+catalog_queries:
+  - supply_chain
+  - suppliers system=bigquery
+  - procurement warehouse shipment
+
+expected_glossary:
+  id_substrings: [supply, procurement]
+  display_name_substring: supply
+
+expected_categories:
+  - display_name: Suppliers
+    description: Vendor master and supplier tiering.
+    aliases: [Supplier Management, Vendors, Supplier]
+  - display_name: Procurement
+    description: Purchase orders, committed spend, cost centers.
+    aliases: [Purchasing, Spend Management]
+  - display_name: Logistics
+    description: Shipments, carriers, on-time delivery.
+    aliases: [Shipping, Transportation, Inbound Logistics]
+  - display_name: Warehousing
+    description: Warehouses and on-hand inventory.
+    aliases: [Warehouse Operations, Inventory, Inventory Management]
+
+expected_terms:
+  - display_name: Supplier
+    description: A legal entity approved to provide goods or services.
+    expected_category: Suppliers
+    aliases: [Vendor]
+    must_link:
+      - entry_suffix: supply_chain.suppliers
+        relationship: definition
+
+  - display_name: Strategic Supplier
+    description: A Supplier whose supplier_tier is 'Strategic'.
+    expected_category: Suppliers
+    aliases: [Tier-1 Supplier]
+    must_link:
+      - entry_suffix: supply_chain.suppliers
+        relationship: definition
+
+  - display_name: Preferred Supplier
+    description: A Supplier whose supplier_tier is 'Preferred'.
+    expected_category: Suppliers
+    aliases: [Tier-2 Supplier]
+
+  - display_name: Approved Supplier
+    description: A Supplier whose supplier_tier is 'Approved'.
+    expected_category: Suppliers
+    aliases: [Spot-buy Supplier]
+
+  - display_name: Purchase Order
+    description: A commercial commitment to buy from a Supplier.
+    expected_category: Procurement
+    aliases: [PO]
+    must_link:
+      - entry_suffix: supply_chain.purchase_orders
+        relationship: definition
+
+  - display_name: Committed Spend
+    description: Sum of PO totals for issued, acknowledged, and fulfilled POs.
+    expected_category: Procurement
+    aliases: [Committed Cost]
+    must_link:
+      - entry_suffix: supply_chain.purchase_orders
+        relationship: definition
+
+  - display_name: Cost Center
+    description: Internal accounting unit charged for a PO.
+    expected_category: Procurement
+    aliases: []
+    must_link:
+      - entry_suffix: supply_chain.purchase_orders
+        relationship: definition
+
+  - display_name: Shipment
+    description: An inbound delivery leg fulfilling a purchase order.
+    expected_category: Logistics
+    aliases: [Inbound Shipment]
+    must_link:
+      - entry_suffix: supply_chain.shipments
+        relationship: definition
+
+  - display_name: On-Time Delivery
+    description: Percentage of delivered shipments arriving on or before estimated arrival.
+    expected_category: Logistics
+    aliases: [OTD, OTD Rate]
+    must_link:
+      - entry_suffix: supply_chain.shipments
+        relationship: definition
+
+  - display_name: Lead Time
+    description: Days between PO issuance and shipment arrival.
+    expected_category: Logistics
+    aliases: [Procurement Lead Time]
+    must_link:
+      - entry_suffix: supply_chain.shipments
+        relationship: related
+
+  - display_name: Carrier
+    description: Logistics provider responsible for shipping a lane.
+    expected_category: Logistics
+    aliases: [Freight Carrier]
+    must_link:
+      - entry_suffix: supply_chain.shipments
+        relationship: definition
+
+  - display_name: Warehouse
+    description: A physical receiving or distribution location.
+    expected_category: Warehousing
+    aliases: [Distribution Center, DC]
+    must_link:
+      - entry_suffix: supply_chain.warehouses
+        relationship: definition
+
+  - display_name: Inventory Item
+    description: On-hand stock for a SKU at a warehouse.
+    expected_category: Warehousing
+    aliases: [Stock Item, SKU Inventory]
+    must_link:
+      - entry_suffix: supply_chain.inventory_items
+        relationship: definition
+
+  - display_name: Stock-Out
+    description: A SKU at a Warehouse with zero on-hand inventory but a non-zero reorder point.
+    expected_category: Warehousing
+    aliases: [Out of Stock, OOS]
+    must_link:
+      - entry_suffix: supply_chain.inventory_items
+        relationship: related
+
+  - display_name: Reorder Point
+    description: Quantity threshold that triggers a replenishment PO.
+    expected_category: Warehousing
+    aliases: [Replenishment Point]
+    must_link:
+      - entry_suffix: supply_chain.inventory_items
+        relationship: definition
+
+  - display_name: Inventory Turnover
+    description: COGS for a period divided by average inventory value.
+    expected_category: Warehousing
+    aliases: [Inventory Turn, Stock Turn]
+
+secondary_prompts:
+  - id: extend_terms
+    mode: extend
+    prompt: |
+      Add more terms and categories to the supply-chain glossary using
+      gs://${PROJECT}-glossary-test/supply-chain/ for context.
+    target_glossary_id_substrings: [supply, procurement]
+
+  - id: extend_terms_only
+    mode: extend-terms-only
+    prompt: |
+      Add only new terms to the supply-chain glossary — keep the
+      existing categories.
+    target_glossary_id_substrings: [supply, procurement]
