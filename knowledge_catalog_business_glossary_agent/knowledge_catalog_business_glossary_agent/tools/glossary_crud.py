@@ -137,9 +137,17 @@ def create_glossary_category(
       f"{get_dataplex_base_url()}/{glossary_parent}/categories"
       f"?categoryId={slugify(category_id)}"
   )
-  body = {"displayName": display_name, "description": description}
-  if parent_category_id:
-    body["parent"] = f"{glossary_parent}/categories/{parent_category_id}"
+  # `parent` is REQUIRED on the body. Default to the glossary itself; only
+  # use a category resource name when nesting under another category.
+  body = {
+      "displayName": display_name,
+      "description": description,
+      "parent": (
+          f"{glossary_parent}/categories/{parent_category_id}"
+          if parent_category_id
+          else glossary_parent
+      ),
+  }
   return _request("POST", url, json=body)
 
 
@@ -183,9 +191,17 @@ def create_glossary_term(
       f"{get_dataplex_base_url()}/{glossary_parent}/terms"
       f"?termId={slugify(term_id)}"
   )
-  body = {"displayName": display_name, "description": description}
-  if category_id:
-    body["parent"] = f"{glossary_parent}/categories/{category_id}"
+  # `parent` is REQUIRED on the body. Default to the glossary itself; only
+  # set a category resource name when the term lives under a category.
+  body = {
+      "displayName": display_name,
+      "description": description,
+      "parent": (
+          f"{glossary_parent}/categories/{category_id}"
+          if category_id
+          else glossary_parent
+      ),
+  }
   return _request("POST", url, json=body)
 
 
