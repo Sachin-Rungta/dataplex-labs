@@ -12,3 +12,10 @@ pydantic>=2
 numpy
 scikit-learn
 PyYAML
+# pyOpenSSL >= 23 added a "Context has already been used to create a
+# Connection, it cannot be mutated again" strict check that urllib3 trips
+# on when the Storage / Dataplex / Gemini clients share a process. Pin
+# below that version to keep the check disabled. Once urllib3 stops
+# re-mutating verify_mode on used contexts, this pin can be removed.
+pyOpenSSL<23
+
