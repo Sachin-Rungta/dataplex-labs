@@ -163,7 +163,10 @@ gcloud documentai processors create \
 
 # 4. Python deps
 python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+# On corp Python environments where pip is pre-pointed at an internal
+# Artifact Registry mirror, append the public-PyPI fallback so packages
+# like google-adk can still resolve:
+pip install -r requirements.txt --extra-index-url https://pypi.org/simple/
 
 # 5. .env from template
 cp .env.example .env  # then edit
@@ -379,6 +382,7 @@ Full guide in [`docs/eval/README.md`](docs/eval/README.md).
 | `RESOURCE_EXHAUSTED` from Vertex. | Embedding QPS or token quota hit. | Lower `GLOSSARY_AGENT_EMBEDDING_BATCH`; request quota. |
 | Recommendations feel noisy. | Domain centroid too broad. | Provide a tighter `scope_hint` in your message, or raise `GLOSSARY_AGENT_LINK_COSINE_MIN`. |
 | Recommendations feel sparse. | Cosine threshold too strict. | Lower `GLOSSARY_AGENT_LINK_COSINE_MIN`; lower `GLOSSARY_AGENT_DEDUP_COSINE`. |
+| `Could not find a version that satisfies the requirement google-adk` during `pip install`. | Corp pip is configured with an internal Artifact Registry index that doesn't carry google-adk. | Either rerun `./setup.sh` (it now appends `--extra-index-url https://pypi.org/simple/` automatically), or one-shot it: `pip install -r requirements.txt --extra-index-url https://pypi.org/simple/`. Override the fallback URL with `PIP_EXTRA_INDEX_URL=<your-mirror>` if you have your own. |
 
 ---
 

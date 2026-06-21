@@ -367,9 +367,17 @@ else
     # shellcheck disable=SC1091
     PIP_BIN="$VENV_ABS/bin/pip"
   fi
-  "$PIP_BIN" install --upgrade pip >/dev/null
-  "$PIP_BIN" install -r "$SCRIPT_DIR/requirements.txt"
-  ok "Dependencies installed."
+  # Many corp Python environments are pre-configured to use an internal
+  # Artifact Registry mirror (e.g. ah-3p-staging-python) as the primary
+  # index, which does not carry packages like google-adk. Adding
+  # public PyPI as an --extra-index-url makes pip fall back to it for
+  # anything the corp mirror lacks, while keeping any corp-required
+  # packages served from the mirror.
+  PYPI_FALLBACK="${PIP_EXTRA_INDEX_URL:-https://pypi.org/simple/}"
+  "$PIP_BIN" install --upgrade pip --extra-index-url "$PYPI_FALLBACK" >/dev/null
+  "$PIP_BIN" install -r "$SCRIPT_DIR/requirements.txt" \
+      --extra-index-url "$PYPI_FALLBACK"
+  ok "Dependencies installed (extra-index-url: $PYPI_FALLBACK)."
 fi
 
 # ---------------------------------------------------------------------------
