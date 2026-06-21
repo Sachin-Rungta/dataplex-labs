@@ -221,19 +221,29 @@ def recommend_ontology_headless(
           "raw": (response.text or "")[:4000],
       }
 
+  documents = graph.get("documents", []) or []
+  doc_status_counts = {
+      "ok": sum(1 for d in documents if d.get("status") == "ok"),
+      "skipped": sum(1 for d in documents if d.get("status") == "skipped"),
+      "error": sum(1 for d in documents if d.get("status") == "error"),
+  }
+
   return {
       "graph_stats": {
           "entries": len(graph.get("entries", []) or []),
-          "documents": len(graph.get("documents", []) or []),
+          "documents": len(documents),
           "concepts": len(graph.get("concepts", []) or []),
           "edges": len(graph.get("edges", []) or []),
+          "documents_by_status": doc_status_counts,
       },
       "embed_stats": embed_stats,
       "candidates": candidates.get("candidates", []),
       "clusters": clusters,
       "recommendation": parsed.model_dump(),
+      "graph_concepts": graph.get("concepts", []),
+      "graph_edges": graph.get("edges", []),
       "graph_entries": graph.get("entries", []),
-      "graph_documents": graph.get("documents", []),
+      "graph_documents": documents,
   }
 
 

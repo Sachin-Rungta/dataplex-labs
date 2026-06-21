@@ -88,24 +88,60 @@ STARTER_GLOSSARY_ID = "customer-360-glossary"
 STARTER_GLOSSARY_DISPLAY = "Customer 360 Glossary"
 STARTER_GLOSSARY_DESCRIPTION = (
     "Seed glossary used by the eval harness to test extend-mode flows."
+    " Intentionally partial — covers two categories and six terms drawn"
+    " from the golden set so the agent has both real duplicates to skip"
+    " and obvious gaps to fill."
 )
-STARTER_SEED_CATEGORY = {
-    "id": "customer-profile",
-    "display_name": "Customer Profile",
-    "description": "Identity and structural attributes of a customer.",
-}
+STARTER_SEED_CATEGORIES = [
+    {
+        "id": "customer-profile",
+        "display_name": "Customer Profile",
+        "description": "Identity and structural attributes of a customer.",
+    },
+    {
+        "id": "subscription",
+        "display_name": "Subscription",
+        "description": "Paid or free subscription accounts.",
+    },
+]
 STARTER_SEED_TERMS = [
+    # Customer Profile category (3 of ~6 golden customer-profile terms)
     {
         "id": "customer",
         "display_name": "Customer",
-        "description": "An individual or entity that has created an account.",
+        "description": "An individual or entity that has created an account with us.",
         "category_id": "customer-profile",
     },
     {
         "id": "customer-segment",
         "display_name": "Customer Segment",
-        "description": "Go-to-market segment (Enterprise / SMB / Consumer).",
+        "description": "Go-to-market segment a customer belongs to (Enterprise / SMB / Consumer).",
         "category_id": "customer-profile",
+    },
+    {
+        "id": "customer-lifetime-value",
+        "display_name": "Customer Lifetime Value",
+        "description": "Modeled total revenue expected from a customer over the relationship.",
+        "category_id": "customer-profile",
+    },
+    # Subscription category (3 of ~6 golden subscription terms)
+    {
+        "id": "subscription-account",
+        "display_name": "Subscription Account",
+        "description": "A paid or free subscription owned by a customer.",
+        "category_id": "subscription",
+    },
+    {
+        "id": "plan-tier",
+        "display_name": "Plan Tier",
+        "description": "Subscription plan tier (Free, Pro, or Enterprise).",
+        "category_id": "subscription",
+    },
+    {
+        "id": "monthly-recurring-revenue",
+        "display_name": "Monthly Recurring Revenue",
+        "description": "Monthly Recurring Revenue in USD across active accounts.",
+        "category_id": "subscription",
     },
 ]
 
@@ -203,16 +239,17 @@ def ensure_starter_glossary(
   if "error" in g:
     return {"error": f"failed to create starter glossary: {g}"}
 
-  # Category
-  c = create_glossary_category(
-      glossary_id=glossary_id,
-      category_id=STARTER_SEED_CATEGORY["id"],
-      display_name=STARTER_SEED_CATEGORY["display_name"],
-      description=STARTER_SEED_CATEGORY["description"],
-      location=loc,
-  )
-  if "error" in c:
-    return {"error": f"failed to create starter category: {c}"}
+  # Categories
+  for cat in STARTER_SEED_CATEGORIES:
+    c = create_glossary_category(
+        glossary_id=glossary_id,
+        category_id=cat["id"],
+        display_name=cat["display_name"],
+        description=cat["description"],
+        location=loc,
+    )
+    if "error" in c:
+      return {"error": f"failed to create starter category {cat['id']}: {c}"}
 
   # Terms
   for t in STARTER_SEED_TERMS:
@@ -231,7 +268,7 @@ def ensure_starter_glossary(
       "created": True,
       "glossary_id": glossary_id,
       "location": loc,
-      "seed_category": STARTER_SEED_CATEGORY["id"],
+      "seed_categories": [c["id"] for c in STARTER_SEED_CATEGORIES],
       "seed_terms": [t["id"] for t in STARTER_SEED_TERMS],
   }
 
@@ -333,6 +370,12 @@ def run_scenario(
       "glossary_id": scenario.get("glossary_id"),
       "graph_stats": ont.get("graph_stats"),
       "embed_stats": ont.get("embed_stats"),
+      "graph_concepts": ont.get("graph_concepts", []),
+      "graph_edges": ont.get("graph_edges", []),
+      "graph_entries": ont.get("graph_entries", []),
+      "graph_documents": ont.get("graph_documents", []),
+      "candidates": ont.get("candidates", []),
+      "clusters": ont.get("clusters", {}),
       "recommendation": rec,
       "link_proposals": proposals,
       "term_metrics": term_metrics,

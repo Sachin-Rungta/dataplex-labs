@@ -25,9 +25,13 @@ eval/
 | 3 | EXTEND existing glossary, catalog only | `extend` | none | auto-seeded |
 | 4 | EXTEND existing glossary, NL + GCS | `extend` | yes | auto-seeded |
 
-For scenarios 3 + 4 the script auto-creates a tiny "starter glossary"
-(`customer-360-glossary` with one category and two seed terms) the
-first time you run it, so the eval is self-contained. Pass
+For scenarios 3 + 4 the script auto-creates a partial-coverage
+"starter glossary" (`customer-360-glossary` with two categories —
+*Customer Profile* and *Subscription* — and six seed terms drawn
+from the golden set: *Customer*, *Customer Segment*, *Customer
+Lifetime Value*, *Subscription Account*, *Plan Tier*, *Monthly
+Recurring Revenue*) the first time you run it, so the agent has
+both real duplicates to skip and obvious gaps to fill. Pass
 `--no-seed-glossary` if you'd rather point at a glossary you've
 built yourself.
 

@@ -52,6 +52,107 @@ def render_summary_table(per_domain: Dict[str, Dict]) -> str:
   return header + "\n".join(rows)
 
 
+def _short_entry(name: str) -> str:
+  """Trim a long catalog entry resource name for display."""
+  if not name:
+    return ""
+  # Keep the trailing two path segments — that's the FQN that humans
+  # actually recognize (bigquery:project.dataset.table).
+  parts = name.split("/")
+  if len(parts) >= 2:
+    return ".../".join(["", parts[-1]]).lstrip(".")
+  return name
+
+
+def _render_context_graph_section(result: Dict, *, top_concepts: int = 20,
+                                  top_edges: int = 15) -> str:
+  """Renders the context graph the recommender consumed.
+
+  Shows the top concepts (by frequency), the strongest edges, the
+  catalog entries that were retrieved, and the document ingestion
+  outcomes. The recommendation's quality is downstream of this graph,
+  so surfacing it is the first thing to look at when a metric is off.
+  """
+  concepts = result.get("graph_concepts") or []
+  edges = result.get("graph_edges") or []
+  entries = result.get("graph_entries") or []
+  documents = result.get("graph_documents") or []
+
+  if not (concepts or edges or entries or documents):
+    return ""
+
+  parts: List[str] = ["\n### Context graph (what the recommender saw)\n"]
+
+  if concepts:
+    parts.append(f"\n**Top concepts** (top {min(top_concepts, len(concepts))} of {len(concepts)}):\n")
+    for c in concepts[:top_concepts]:
+      parts.append(
+          f"- `{c.get('name','')}` — freq {c.get('frequency','?')}, "
+          f"sources {len(c.get('sources') or [])}\n"
+      )
+
+  if edges:
+    parts.append(f"\n**Top co-occurrence edges** (top {min(top_edges, len(edges))} of {len(edges)}):\n")
+    for e in edges[:top_edges]:
+      parts.append(
+          f"- `{e.get('source','')}` ↔ `{e.get('target','')}` (w={e.get('weight','?')})\n"
+      )
+
+  if entries:
+    parts.append(f"\n**Catalog entries retrieved** ({len(entries)}):\n")
+    for ent in entries[:25]:
+      display = ent.get("display_name") or ent.get("resource_id") or ent.get("entry_name", "")
+      sys_tag = ent.get("system", "")
+      parts.append(f"- `{display}` ({sys_tag})\n")
+    if len(entries) > 25:
+      parts.append(f"- ... and {len(entries) - 25} more\n")
+
+  if documents:
+    parts.append(f"\n**Documents ingested** ({len(documents)}):\n")
+    for d in documents[:15]:
+      status = d.get("status", "?")
+      src = d.get("source", "")
+      uri = d.get("uri", "")
+      detail = ""
+      if status == "ok":
+        detail = f"{d.get('concept_count','?')} concepts" + (
+            f", {d.get('pages')} pages" if d.get("pages") else ""
+        )
+      elif status in ("skipped", "error"):
+        detail = d.get("detail", "")
+      tag = f" [{src}]" if src else ""
+      parts.append(f"- `{uri}` — **{status}**{tag} ({detail})\n")
+    if len(documents) > 15:
+      parts.append(f"- ... and {len(documents) - 15} more\n")
+
+  candidates = result.get("candidates") or []
+  if candidates:
+    parts.append(
+        f"\n**Top ranked candidates after embedding scorer** "
+        f"(top 10 of {len(candidates)}):\n"
+    )
+    for c in candidates[:10]:
+      parts.append(
+          f"- `{c.get('term','')}` — score {c.get('score','?')}, "
+          f"cos-to-domain {c.get('cosine_to_domain','?')}, "
+          f"freq {c.get('frequency','?')}\n"
+      )
+
+  clusters = (result.get("clusters") or {}).get("clusters", []) or []
+  if clusters:
+    parts.append(
+        f"\n**Cluster seeds (proposed category candidates)** ({len(clusters)}):\n"
+    )
+    for cl in clusters[:10]:
+      parts.append(
+          f"- `{cl.get('suggested_category_id', cl.get('cluster_id',''))}` "
+          f"(size {cl.get('size','?')}) — exemplars: "
+          f"{', '.join(cl.get('exemplars', [])[:5])}\n"
+      )
+
+  return "".join(parts)
+
+
 def render_domain_section(domain: str, result: Dict) -> str:
   label = result.get("label") or domain
   parts: List[str] = [f"\n## {domain} — {label}\n"]
@@ -82,6 +183,8 @@ def render_domain_section(domain: str, result: Dict) -> str:
       f"**Recommended:** {len(rec.get('categories') or [])} categories,"
       f" {len(rec.get('terms') or [])} terms\n"
   )
+
+  parts.append(_render_context_graph_section(result))
 
   t = result.get("term_metrics") or {}
   if t:
